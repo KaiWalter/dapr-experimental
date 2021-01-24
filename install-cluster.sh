@@ -4,13 +4,14 @@
 ClusterName=sf-dapr
 Password=$(pwgen 20 1)
 Subject=$ClusterName.$LOCATION.cloudapp.azure.com
-VaultName=$ClusterName-vault
+VaultName=$ClusterName-kv
 VmPassword=$(pwgen 20 1)
 VmUserName=sfadminuser
 
 if [[ ! $(az keyvault show --name $VaultName) ]]; 
 then
     az keyvault create --name $VaultName --enable-rbac-authorization --enabled-for-deployment --enabled-for-template-deployment
+    # MISSING: assing yourself Key Vault Certificates Officer + Key Vault Secrets Officer
 fi
 
 # Create secure five node Linux cluster. Creates a key vault in a resource group
