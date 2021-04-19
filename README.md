@@ -1,57 +1,10 @@
-## prepare jump VM
+# dapr-experimental
 
-- Ubuntu 20.10
-- System Managed Identity
-- VNET
+experiments with [Dapr](https://dapr.io)
 
-### install Azure CLI
+## app to app invocation
 
-```
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
+### manual start
 
-### prepare subscription (optional)
+start with `startDaprAsJob.ps1` from `app2app` folders
 
-```
-az provider register -n Microsoft.KeyVault
-az provider register -n Microsoft.ServiceFabric
-```
-
-### install SF CLI
-
-from https://docs.microsoft.com/en-us/azure/service-fabric/service-fabric-cli
-
-```
-sudo apt-get update
-sudo apt-get install python3
-sudo apt-get install python3-pip
-pip3 install sfctl
-export PATH=$PATH:~/.local/bin
-echo "export PATH=$PATH:~/.local/bin" >> .shellrc
-```
-
-### install tools
-
-```
-sudo apt-get install pwgen -y
-```
-
-### set environment variables
-
-```
-export SUBSCRIPTION_ID={subscription-id}
-export RESOURCE_GROUP={resource-group-name}
-export LOCATION={azure-location}
-export VNET=sf-{vnet-name}
-export SUBNET={subnet-name}
-```
-
-## install cluster
-
-###
-
-```
-az login --use-device-code
-az configure --defaults location=$LOCATION group=$RESOURCE_GROUP
-az account set --subscription $SUBSCRIPTION_ID
-```

@@ -1,0 +1,262 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerGroupName": {
+            "defaultValue": "app1",
+            "type": "String",
+            "metadata": {
+                "description": "Container Group name."
+            }
+        },
+        "vnetName": {
+            "defaultValue": "aci-vnet",
+            "type": "String",
+            "metadata": {
+                "description": "VNet name"
+            }
+        },
+        "vnetAddressPrefix": {
+            "defaultValue": "10.0.0.0/16",
+            "type": "String",
+            "metadata": {
+                "description": "Address prefix"
+            }
+        },
+        "aciSubnetAddressPrefix": {
+            "defaultValue": "10.0.0.0/24",
+            "type": "String",
+            "metadata": {
+                "description": "Subnet prefix"
+            }
+        },
+        "aciSubnetName": {
+            "defaultValue": "aci-subnet",
+            "type": "String",
+            "metadata": {
+                "description": "Subnet name"
+            }
+        },
+        "vmSubnetAddressPrefix": {
+            "defaultValue": "10.0.1.0/24",
+            "type": "String",
+            "metadata": {
+                "description": "Subnet prefix"
+            }
+        },
+        "vmSubnetName": {
+            "defaultValue": "vm-subnet",
+            "type": "String",
+            "metadata": {
+                "description": "Subnet name"
+            }
+        },
+        "appName": {
+            "defaultValue": "app1",
+            "type": "String"
+        },
+        "registryName": {
+            "defaultValue": "czkwacr",
+            "type": "String"
+        }
+    },
+    "variables": {
+        "networkProfileName": "aci-networkProfile",
+        "interfaceConfigName": "eth0",
+        "interfaceIpConfig": "ipconfigprofile1",
+        "registryResourceId": "[resourceId( 'Microsoft.ContainerRegistry/registries', parameters('registryName'))]",
+        "registryLoginServer": "[format('{0}.azurecr.io',parameters('registryName'))]",
+        "appContainerName": "[format('{0}-app',parameters('appName'))]",
+        "appContainerImage": "[format('{0}/{1}:latest',variables('registryLoginServer'),parameters('appName'))]",
+        "sidecarContainerName": "[format('{0}-dapr',parameters('appName'))]",
+        "sidecarContainerImage": "daprio/daprd:edge"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-05-01",
+            "name": "[parameters('vnetName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnetAddressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('aciSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('aciSubnetAddressPrefix')]",
+                            "delegations": [
+                                {
+                                    "name": "DelegationService",
+                                    "properties": {
+                                        "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "[parameters('vmSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('vmSubnetAddressPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkProfiles",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('networkProfileName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            ],
+            "properties": {
+                "containerNetworkInterfaceConfigurations": [
+                    {
+                        "name": "[variables('interfaceConfigName')]",
+                        "properties": {
+                            "ipConfigurations": [
+                                {
+                                    "name": "[variables('interfaceIpConfig')]",
+                                    "properties": {
+                                        "subnet": {
+                                            "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('aciSubnetName'))]"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2019-12-01",
+            "name": "[parameters('containerGroupName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkProfiles', variables('networkProfileName'))]"
+            ],
+            "properties": {
+                "imageRegistryCredentials": [
+                    {
+                        "server": "[variables('registryLoginServer')]",
+                        "username": "[listCredentials(variables('registryResourceId'), '2019-05-01').username]",
+                        "password": "[listCredentials(variables('registryResourceId'), '2019-05-01').passwords[0].value]"
+                    }
+                ],
+                "containers": [
+                    {
+                        "name": "[variables('appContainerName')]",
+                        "properties": {
+                            "image": "[variables('appContainerImage')]",
+                            "environmentVariables": [
+                                {
+                                    "name": "DAPR_GRPC_PORT",
+                                    "value": "50002"
+                                },
+                                {
+                                    "name": "DAPR_HTTP_PORT",
+                                    "value": "3510"
+                                },
+                                {
+                                    "name": "ASPNETCORE_URLS",
+                                    "value": "http://+:5010"
+                                }
+                            ],
+                            "readinessProbe": {
+                                "initialDelaySeconds": 10,
+                                "periodSeconds": 15,
+                                "httpGet": {
+                                    "path": "/health",
+                                    "port": 5010,
+                                    "scheme": "http"
+                                }
+                            },
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGb": 0.5
+                                }
+                            },
+                            "ports": [
+                                {
+                                    "port": 5010
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "[variables('sidecarContainerName')]",
+                        "properties": {
+                            "image": "[variables('sidecarContainerImage')]",
+                            "command": [
+                                "./daprd",
+                                "-app-id",
+                                "app1",
+                                "-app-port",
+                                "5010",
+                                "-placement-host-address",
+                                "placement:50006",
+                                "-dapr-grpc-port",
+                                "50002",
+                                "-dapr-http-port",
+                                "3510",
+                                "-components-path",
+                                "/components"
+                            ],
+                            "readinessProbe": {
+                                "initialDelaySeconds": 10,
+                                "periodSeconds": 15,
+                                "httpGet": {
+                                    "path": "/v1.0/healthz",
+                                    "port": 3510,
+                                    "scheme": "http"
+                                }
+                            },
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGb": 0.5
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "dummy",
+                        "properties": {
+                            "image": "centos",
+                            "command": [
+                                "curl",
+                                "http://localhost:5010/health"
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGb": 0.5
+                                }
+                            }
+                        }
+                    }
+                ],
+                "osType": "Linux",
+                "networkProfile": {
+                    "id": "[resourceId('Microsoft.Network/networkProfiles', variables('networkProfileName'))]"
+                },
+                "restartPolicy": "Always"
+            }
+        }
+    ],
+    "outputs": {
+        "containerIPv4Address": {
+            "type": "String",
+            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups/', parameters('containerGroupName'))).ipAddress.ip]"
+        }
+    }
+}

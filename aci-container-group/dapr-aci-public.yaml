@@ -1,0 +1,120 @@
+apiVersion: 2019-12-01
+location: westeurope
+name: dapraci
+identity:
+  type: SystemAssigned
+properties:
+  containers:
+  - name: app1
+    properties:
+      image: czkwacr.azurecr.io/app1
+      resources:
+        requests:
+          cpu: 1.0
+          memoryInGB: 1.5
+      environmentVariables:
+      - name: ASPNETCORE_URLS
+        value: http://+:5010
+      - name: DAPR_HTTP_PORT
+        value: 3510
+      - name: DAPR_GRPC_PORT
+        value: 50001
+      ports:
+      - port: 5010
+  - name: daprd1
+    properties:
+      image: daprio/daprd:0.11.3
+      volumeMounts:
+      - name: dapr-logs
+        mountPath: /var/log/pods
+      command:
+      - /daprd
+      - --app-id
+      - app1
+      - --app-port
+      - 5010
+      - --dapr-http-port
+      - 3510
+      - --dapr-grpc-port
+      - 50001
+      - --metrics-port
+      - 9091
+      - --components-path
+      - /components
+      - --log-as-json
+      - --log-level
+      - debug
+      resources:
+        requests:
+          cpu: 1.0
+          memoryInGB: 1.5
+      ports:
+        - port: 3510
+        - port: 50001
+  - name: app2
+    properties:
+      image: czkwacr.azurecr.io/app1
+      resources:
+        requests:
+          cpu: 1.0
+          memoryInGB: 1.5
+      environmentVariables:
+      - name: ASPNETCORE_URLS
+        value: http://+:5020
+      - name: DAPR_HTTP_PORT
+        value: 3520
+      - name: DAPR_GRPC_PORT
+        value: 50002
+      ports:
+      - port: 5020
+  - name: daprd2
+    properties:
+      image: daprio/daprd:0.11.3
+      volumeMounts:
+      - name: dapr-logs
+        mountPath: /var/log/pods
+      command:
+      - /daprd
+      - --app-id
+      - app2
+      - --app-port
+      - 5020
+      - --dapr-http-port
+      - 3520
+      - --dapr-grpc-port
+      - 50002
+      - --metrics-port
+      - 9092
+      - --components-path
+      - /components
+      - --log-as-json
+      - --log-level
+      - debug
+      resources:
+        requests:
+          cpu: 1.0
+          memoryInGB: 1.5
+      ports:
+        - port: 3520
+        - port: 50002
+  osType: Linux
+  restartPolicy: Always
+  ipAddress:
+    ports:
+    - port: 5010
+      protocol: TCP
+    - port: 5020
+      protocol: TCP
+    - port: 3510
+      protocol: TCP
+    - port: 3520
+      protocol: TCP
+    - port: 50001
+      protocol: TCP
+    - port: 50002
+      protocol: TCP
+    type: Public
+  volumes:
+  - name: dapr-logs
+    emptyDir: {}
+type: Microsoft.ContainerInstance/containerGroups

@@ -1,0 +1,70 @@
+version: '3'
+services:
+
+  app1:
+    build: ../app2app/app1
+    image: czkwacr.azurecr.io/app1
+    container_name: app1
+    environment:
+      DAPR_GRPC_PORT: 50002
+      ASPNETCORE_URLS: http://+:5010
+    ports:
+      - "5010:5010"
+    expose:
+      - "5010"
+    depends_on:
+      - placement
+    networks:
+      - aci-dapr
+  app1-dapr:
+    image: "daprio/daprd:edge"
+    command: ["./daprd",
+      "-app-id", "app1",
+      "-app-port", "5010",
+      "-placement-host-address", "placement:50006",
+      "-dapr-grpc-port", "50002",
+      "-components-path", "/components"]
+    volumes:
+        - "./components/:/components"
+    depends_on:
+      - app1
+    network_mode: "service:app1"
+  
+  app2:
+    build: ../app2app/app2
+    image: czkwacr.azurecr.io/app2
+    container_name: app2
+    environment:
+      DAPR_GRPC_PORT: 50003
+      ASPNETCORE_URLS: http://+:5020
+    ports:
+      - "5020:5020"
+    expose:
+      - "5020"
+    depends_on:
+      - placement
+    networks:
+      - aci-dapr
+  app2-dapr:
+    image: "daprio/daprd:edge"
+    command: ["./daprd",
+      "-app-id", "app2",
+      "-app-port", "5020",
+      "-placement-host-address", "placement:50006",
+      "-dapr-grpc-port", "50003",
+      "-components-path", "/components"]
+    volumes:
+        - "./components/:/components"
+    depends_on:
+      - app2
+    network_mode: "service:app2"
+
+  placement:
+    image: "daprio/dapr"
+    command: ["./placement", "-port", "50006"]
+    ports:
+      - "50006:50006"
+    networks:
+      - aci-dapr
+networks:
+  aci-dapr:

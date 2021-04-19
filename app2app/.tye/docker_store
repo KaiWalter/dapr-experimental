@@ -1,0 +1,6 @@
+{"container":"redis_277e7d68-9"}
+{"container":"placement_d92e366f-0"}
+{"container":"app1-proxy_171d798e-0"}
+{"container":"app2-proxy_35e639d0-b"}
+{"container":"app1-dapr-proxy_9432a603-b"}
+{"container":"app2-dapr-proxy_62f96050-f"}

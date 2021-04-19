@@ -1,0 +1,19 @@
+name: app2app
+extensions:
+- name: dapr
+  log-level: debug
+services:
+- name: app1
+  project: app1/app1.csproj
+- name: app2
+  project: app2/app2.csproj
+- name: redis
+  image: redis
+  bindings:
+    - port: 6973
+- name: placement
+  image: daprio/dapr
+  args: ./placement
+  bindings:
+    - port: 6050
+      containerPort: 50005
